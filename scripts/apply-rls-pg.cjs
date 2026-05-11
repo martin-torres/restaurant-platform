@@ -4,7 +4,7 @@ const { Client } = require('pg');
 const PASSWORD = process.argv[2] || '';
 
 const client = new Client({
-  host: 'db.auushbzgsjxyulkchwae.supabase.co',
+  host: process.env.SUPABASE_DB_HOST || 'db.auushbzgsjxyulkchwae.supabase.co',
   port: 6543,
   user: 'postgres',
   password: PASSWORD,

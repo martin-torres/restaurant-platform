@@ -1,10 +1,10 @@
 // Test service role key and find correct way to apply SQL
 const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = 'https://auushbzgsjxyulkchwae.supabase.co';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://auushbzgsjxyulkchwae.supabase.co';
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = process.env.SUPABASE_ANON_KEY;
-if (!serviceRoleKey || !anonKey) { console.error('Missing SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY env var'); process.exit(1); }
+if (!serviceRoleKey || !anonKey) { console.error('Missing required env vars'); process.exit(1); }
 
 const serviceSupabase = createClient(supabaseUrl, serviceRoleKey);
 const anonSupabase = createClient(supabaseUrl, anonKey);

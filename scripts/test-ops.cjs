@@ -1,7 +1,7 @@
 // Test actual DB operations to determine which policies are present
 const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = 'https://auushbzgsjxyulkchwae.supabase.co';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://auushbzgsjxyulkchwae.supabase.co';
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!serviceRoleKey) { console.error('Missing SUPABASE_SERVICE_ROLE_KEY env var'); process.exit(1); }
 

@@ -1,8 +1,8 @@
 const { Client } = require('pg');
 const fs = require('fs');
 
-const PASSWORD = 'zEcpyh-7ryvzu-jinjir';
-const REF = 'auushbzgsjxyulkchwae';
+const PASSWORD = process.env.SUPABASE_DB_PASSWORD || '';
+const REF = process.env.SUPABASE_PROJECT_REF || 'auushbzgsjxyulkchwae';
 
 const configs = [
   // Standard pooler format for newer Supabase projects

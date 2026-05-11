@@ -4,7 +4,8 @@ const https = require('https');
 
 const PAT = process.env.SUPABASE_PAT;
 if (!PAT) { console.error('Missing SUPABASE_PAT env var'); process.exit(1); }
-const PROJECT_ID = 'auushbzgsjxyulkchwae';
+const ref = process.env.SUPABASE_PROJECT_REF || 'auushbzgsjxyulkchwae';
+const PROJECT_ID = ref;
 
 const policies = [
   `CREATE POLICY "Staff can update order status" ON orders FOR UPDATE USING (true) WITH CHECK (true)`,
