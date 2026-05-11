@@ -1,0 +1,589 @@
+@import "tailwindcss";
+
+/* ─── Pulse animations for live table status updates ─── */
+@import "./shared/styles/pulse-animations.css";
+
+/* ─── Tailwind v4 Theme Tokens ─── */
+@theme {
+  /* Brand palette */
+  --color-brand-50: #f0f4ff;
+  --color-brand-100: #dbe4ff;
+  --color-brand-200: #bac8ff;
+  --color-brand-300: #91a7ff;
+  --color-brand-400: #748ffc;
+  --color-brand-500: #5c7cfa;
+  --color-brand-600: #4c6ef5;
+  --color-brand-700: #4263eb;
+  --color-brand-800: #3b5bdb;
+  --color-brand-900: #364fc7;
+
+  /* Accent */
+  --color-accent: #f59f00;
+  --color-accent-50: #fff9db;
+  --color-accent-100: #fff3bf;
+  --color-accent-200: #ffec99;
+  --color-accent-300: #ffe066;
+  --color-accent-400: #ffd43b;
+  --color-accent-500: #fcc419;
+  --color-accent-600: #f59f00;
+  --color-accent-700: #e67700;
+  --color-accent-800: #cc7a00;
+  --color-accent-900: #b36600;
+
+  /* Surfaces */
+  --color-surface: #ffffff;
+  --color-surface-alt: #f8f9fa;
+  --color-surface-hover: #f1f3f5;
+  --color-border: #dee2e6;
+  --color-border-light: #e9ecef;
+  --color-text: #212529;
+  --color-text-secondary: #6c757d;
+  --color-text-muted: #adb5bd;
+
+  /* Status */
+  --color-success: #2b8a3e;
+  --color-warning: #e67700;
+  --color-danger: #c92a2a;
+  --color-info: #1971c2;
+
+  /* Typography */
+  --font-sans: 'SF Pro Display', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  --font-display: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* Spacing */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+  --spacing-20: 5rem;
+
+  /* Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px oklch(0% 0 0 / 0.07), 0 2px 4px -2px oklch(0% 0 0 / 0.05);
+  --shadow-lg: 0 10px 15px -3px oklch(0% 0 0 / 0.08), 0 4px 6px -4px oklch(0% 0 0 / 0.04);
+  --shadow-xl: 0 20px 25px -5px oklch(0% 0 0 / 0.1), 0 8px 10px -6px oklch(0% 0 0 / 0.05);
+
+  /* Easing */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: 150ms ease-out;
+  --transition-normal: 200ms ease-out;
+  --transition-slow: 300ms ease-out;
+}
+
+/* ─── Design Tokens (light mode — iOS Customer) ─── */
+:root {
+  /* Brand palette */
+  --color-brand-50: #f0f4ff;
+  --color-brand-100: #dbe4ff;
+  --color-brand-200: #bac8ff;
+  --color-brand-300: #91a7ff;
+  --color-brand-400: #748ffc;
+  --color-brand-500: #5c7cfa;
+  --color-brand-600: #4c6ef5;
+  --color-brand-700: #4263eb;
+  --color-brand-800: #3b5bdb;
+  --color-brand-900: #364fc7;
+
+  /* Accent */
+  --color-accent: #f59f00;
+  --color-accent-50: #fff9db;
+  --color-accent-100: #fff3bf;
+  --color-accent-200: #ffec99;
+  --color-accent-300: #ffe066;
+  --color-accent-400: #ffd43b;
+  --color-accent-500: #fcc419;
+  --color-accent-600: #f59f00;
+  --color-accent-700: #e67700;
+  --color-accent-800: #cc7a00;
+  --color-accent-900: #b36600;
+
+  /* Neutral palette (Light mode — Customer / iOS) */
+  --color-surface: #ffffff;
+  --color-surface-alt: #f8f9fa;
+  --color-surface-hover: #f1f3f5;
+  --color-border: #dee2e6;
+  --color-border-light: #e9ecef;
+  --color-text: #212529;
+  --color-text-secondary: #6c757d;
+  --color-text-muted: #adb5bd;
+
+  /* Status colors */
+  --color-success: #2b8a3e;
+  --color-warning: #e67700;
+  --color-danger: #c92a2a;
+  --color-info: #1971c2;
+
+  /* Floor plan (v2 spec) */
+  --color-fp-amber: #f59f00;
+  --color-fp-red: #e03131;
+  --color-fp-green: #2f9e44;
+  --color-fp-yellow: #fcc419;
+  --color-fp-blue: #1c7ed6;
+  --color-fp-darkgray: #495057;
+  --color-fp-lightgray: #dee2e6;
+  --color-fp-indigo: #6741d9;
+
+  /* Typography — iOS SF Pro (default) */
+  --font-sans: 'SF Pro Display', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  --font-display: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* Spacing scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+
+  /* Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* Shadows (light) */
+  --shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px oklch(0% 0 0 / 0.07), 0 2px 4px -2px oklch(0% 0 0 / 0.05);
+  --shadow-lg: 0 10px 15px -3px oklch(0% 0 0 / 0.08), 0 4px 6px -4px oklch(0% 0 0 / 0.04);
+  --shadow-xl: 0 20px 25px -5px oklch(0% 0 0 / 0.1), 0 8px 10px -6px oklch(0% 0 0 / 0.05);
+
+  /* Glass */
+  --glass-bg: oklch(100% 0.005 260 / 0.8);
+  --glass-border: oklch(100% 0.005 260 / 0.2);
+  --glass-blur: 12px;
+
+  /* Motion */
+  --transition-fast: 150ms ease-out;
+  --transition-normal: 200ms ease-out;
+  --transition-slow: 300ms ease-out;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ─── iOS Platform Overrides (mirrors :root defaults) ─── */
+.platform-ios, html[data-platform="ios"] {
+  /* iOS uses SF Pro from :root defaults */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+}
+
+/* ─── Android / Material Design 3 Theme ─── */
+.platform-android, html[data-platform="android"] {
+  --font-sans: 'Google Sans', 'Roboto', system-ui, -apple-system, sans-serif;
+  --font-display: 'Google Sans Display', 'Google Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Roboto Mono', ui-monospace, monospace;
+
+  /* M3 uses slightly larger radii */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+
+  /* M3 shadows are slightly more pronounced */
+  --shadow-sm: 0 1px 3px oklch(0% 0 0 / 0.12);
+  --shadow-md: 0 4px 8px oklch(0% 0 0 / 0.14);
+  --shadow-lg: 0 8px 16px oklch(0% 0 0 / 0.16);
+  --shadow-xl: 0 12px 28px oklch(0% 0 0 / 0.18);
+}
+
+/* ─── Dark mode (staff, owner — default dark / Material3) ─── */
+.dark {
+  --color-surface: #1a1b23;
+  --color-surface-alt: #22232e;
+  --color-surface-hover: #2a2b38;
+  --color-border: #2e303e;
+  --color-border-light: #252735;
+  --color-text: #e9ecef;
+  --color-text-secondary: #9ca3af;
+  --color-text-muted: #6b7280;
+
+  /* Shadows (dark) — deeper for contrast */
+  --shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.3);
+  --shadow-md: 0 4px 6px oklch(0% 0 0 / 0.35);
+  --shadow-lg: 0 10px 15px oklch(0% 0 0 / 0.4);
+  --shadow-xl: 0 20px 25px oklch(0% 0 0 / 0.45);
+
+  /* Glass dark */
+  --glass-bg: oklch(16% 0.015 270 / 0.85);
+  --glass-border: oklch(100% 0 0 / 0.08);
+}
+
+/* ─── Base Styles ─── */
+* { box-sizing: border-box; }
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background: var(--color-surface);
+  color: var(--color-text);
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Scrollbar Styling ─── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ─── Animations ─── */
+.pulse-ring {
+  animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7); }
+  50% { box-shadow: 0 0 0 6px rgba(229, 62, 62, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.4; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes check-bounce {
+  0% { transform: scale(0); opacity: 0; }
+  40% { transform: scale(1.25); opacity: 1; }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes add-to-cart-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(92, 124, 250, 0.4); }
+  70% { box-shadow: 0 0 0 12px rgba(92, 124, 250, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(92, 124, 250, 0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in { animation: fade-in var(--transition-normal); }
+.animate-scale-in { animation: scale-in var(--transition-normal); }
+.animate-slide-up { animation: slide-up var(--transition-slow); }
+.animate-slide-in-right { animation: slide-in-right var(--transition-normal); }
+.animate-pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+.animate-check-bounce { animation: check-bounce 0.5s var(--ease-out-expo) forwards; }
+.animate-add-pulse { animation: add-to-cart-pulse 0.6s ease-out; }
+
+/* ─── Stagger fade-in for lists ─── */
+@keyframes stagger-fade {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-stagger > * {
+  animation: stagger-fade 0.35s var(--ease-out-expo) both;
+}
+.animate-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.animate-stagger > *:nth-child(2) { animation-delay: 40ms; }
+.animate-stagger > *:nth-child(3) { animation-delay: 80ms; }
+.animate-stagger > *:nth-child(4) { animation-delay: 120ms; }
+.animate-stagger > *:nth-child(5) { animation-delay: 160ms; }
+.animate-stagger > *:nth-child(6) { animation-delay: 200ms; }
+.animate-stagger > *:nth-child(7) { animation-delay: 240ms; }
+.animate-stagger > *:nth-child(8) { animation-delay: 280ms; }
+
+/* ─── Sparkline charts ─── */
+.sparkline {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 20px;
+}
+.sparkline-bar {
+  width: 3px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+/* ─── Glass effect ─── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+}
+
+/* ─── iOS-style tab bar ─── */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-top: 1px solid var(--color-border);
+  padding: 4px 0;
+  padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+  height: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Platform-specific tab bar adjustments */
+.platform-android .tab-bar,
+html[data-platform="android"] .tab-bar {
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
+  background: var(--color-surface);
+  backdrop-filter: none;
+  border-top: 1px solid var(--color-border);
+  box-shadow: 0 -2px 8px oklch(0% 0 0 / 0.06);
+}
+
+/* ─── iOS-style navigation bar ─── */
+.nav-bar-ios {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: oklch(100% 0.005 260 / 0.85);
+  border-bottom: 0.5px solid var(--color-border);
+}
+
+/* ─── Bottom sheet (iOS) ─── */
+.bottom-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--color-surface);
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  box-shadow: 0 -4px 20px oklch(0% 0 0 / 0.15);
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: slide-up var(--transition-slow);
+}
+
+/* iOS grabber handle for bottom sheets */
+.bottom-sheet::before {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 5px;
+  background: var(--color-border);
+  border-radius: 3px;
+  margin: 8px auto 12px;
+}
+
+/* ─── M3 bottom sheet (Android) ─── */
+.platform-android .bottom-sheet,
+html[data-platform="android"] .bottom-sheet {
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  box-shadow: 0 -8px 32px oklch(0% 0 0 / 0.18);
+}
+
+/* ─── Status indicator dots ─── */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* ─── Metric card ─── */
+.metric-card {
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: 1rem;
+  transition: box-shadow var(--transition-normal), transform var(--transition-normal);
+}
+.metric-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* ─── iOS-style segmented control ─── */
+.segmented-control {
+  display: flex;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 2px;
+}
+.segmented-control button {
+  flex: 1;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+.segmented-control button.active {
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-brand-500);
+}
+
+/* ─── M3 chip ─── */
+.m3-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-fast);
+}
+.m3-chip.active {
+  background: oklch(50% 0.14 260 / 0.12);
+  border-color: var(--color-brand-500);
+  color: var(--color-brand-600);
+}
+
+/* ─── Nav item active indicator (for side nav) ─── */
+.nav-active {
+  color: var(--color-brand-400);
+  background: oklch(50% 0.14 260 / 0.08);
+  border-radius: var(--radius-md);
+}
+
+/* ─── Kitchen/Bar ticket rail ─── */
+.ticket-rail {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  height: 100%;
+  padding: 0;
+}
+.ticket-rail > section {
+  flex: 1;
+  min-width: 280px;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border);
+}
+
+/* ─── Color classes for floor plan ─── */
+.fp-amber { background: var(--color-fp-amber); }
+.fp-red { background: var(--color-fp-red); }
+.fp-green { background: var(--color-fp-green); }
+.fp-yellow { background: var(--color-fp-yellow); }
+.fp-blue { background: var(--color-fp-blue); }
+.fp-darkgray { background: var(--color-fp-darkgray); }
+.fp-lightgray { background: var(--color-fp-lightgray); }
+.fp-indigo { border-color: var(--color-fp-indigo); }
+
+.bg-fp-amber { background-color: var(--color-fp-amber); }
+.bg-fp-red { background-color: var(--color-fp-red); }
+.bg-fp-green { background-color: var(--color-fp-green); }
+.bg-fp-yellow { background-color: var(--color-fp-yellow); }
+.bg-fp-blue { background-color: var(--color-fp-blue); }
+.bg-fp-darkgray { background-color: var(--color-fp-darkgray); }
+.bg-fp-lightgray { background-color: var(--color-fp-lightgray); }
+.bg-fp-indigo { background-color: var(--color-fp-indigo); }
+
+.text-fp-amber { color: var(--color-fp-amber); }
+.text-fp-red { color: var(--color-fp-red); }
+.text-fp-green { color: var(--color-fp-green); }
+.text-fp-yellow { color: var(--color-fp-yellow); }
+.text-fp-blue { color: var(--color-fp-blue); }
+.text-fp-darkgray { color: var(--color-fp-darkgray); }
+.text-fp-indigo { color: var(--color-fp-indigo); }
+
+.border-fp-amber { border-color: var(--color-fp-amber); }
+.border-fp-red { border-color: var(--color-fp-red); }
+.border-fp-green { border-color: var(--color-fp-green); }
+.border-fp-yellow { border-color: var(--color-fp-yellow); }
+.border-fp-blue { border-color: var(--color-fp-blue); }
+.border-fp-darkgray { border-color: var(--color-fp-darkgray); }
+.border-fp-lightgray { border-color: var(--color-fp-lightgray); }
+.border-fp-indigo { border-color: var(--color-fp-indigo); }
+
+/* ─── iOS-style safe area ─── */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-bottom {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ─── Table status badge / legend ─── */
+.fp-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ─── Shimmer loading effect ─── */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-alt) 0%,
+    var(--color-surface-hover) 40%,
+    var(--color-surface-alt) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}

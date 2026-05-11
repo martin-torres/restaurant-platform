@@ -1,0 +1,121 @@
+SESSION CONTEXT — Restaurant QR Platform
+    
+    Environment
+    - Project path: ~/Documents/Project Apps/restaurant-platform/
+    - Supabase project: auushbzgsjxyulkchwae (us-east-1)
+    - Database connection: ONLY SQL Editor works for DDL. Pooler returns Tenant_or_user_not_found. Direct db subdomain DNS never resolves. REST API + service_role key works for DML.
+    - Service role key: in scripts/seed-supabase.cjs (not in .env)
+    - Client uses anon key (public client) — all queries go through RLS
+    - Dev server: http://localhost:5173
+    
+    The Three Design Tokens (existing, from DESIGN.md)
+    The database schema uses fp_ prefix naming:
+    - fp-blue = #2563EB (primary, order actions)
+    - fp-green = #16A34A (ready/success)
+    - fp-red = #DC2626 (urgent/danger)
+    - fp-amber = #D97706 (warnings)
+    - fp-yellow = #EAB308 (FOH pickup)
+    
+    Database Schema (existing, in full-setup.sql)
+    Tables seeded and their policies:
+    
+    Tables with SELECT policies (public read):
+    - restaurants — 5 restaurants seeded (Di Pasquale, Azúcar y Nuez, Los Bucaneros, Sencillito Café, Maui Café)
+    - menu_items — each has station column: 'kitchen', 'bar', or 'both'
+    - restaurant_tables — with floor plan data
+    - promos, events, floor_plans
+    
+    Tables with INSERT policies:
+    - orders — "Customers can create orders" with check (true)
+    - visit_feedback, anonymous_visits
+    
+    Tables with NO write policies (the root problem):
+    - orders — NO update policy (staff can't change status)
+    - order_items — NO insert/update policy (items fail on order creation, status updates block)
+    - staff_actions — NO insert policy
+    - inventory_items — NO insert/update/delete
+    - restaurant_tables — NO insert/update/delete
+    - staff — NO insert/update
+    - shifts — NO insert/update
+    - floor_plans — NO insert/update
+    - restaurant_qr_codes — NO insert/update
+    - messages — NO insert/update
+    - restaurant_commissions — NO insert/update
+    - owner_actions — NO insert policy
+    
+    Staff Authentication (existing)
+    - URL format: /staff/login?restaurant_id=UUID
+    - Staff table has: id UUID, restaurant_id UUID, name TEXT, pin TEXT (4 digits), role TEXT, is_active BOOLEAN
+    - PINs for Di Pasquale: Kitchen=1113 (Luigi Chef), FOH=1114 (Maria Server), Bar=1115 (Carlos Bartender), Manager=1116 (Sofia Manager)
+    - Session stored as: { restaurantId, staff: { id, name, role, restaurant_id } }
+    - Role routing: kitchen→/staff/kitchen, foh→/staff/foh, bar→/staff/bar, manager→/staff/manager, server→/staff/foh
+    - Owner login: dr.mtorres@icloud.com / passcode 2026
+    
+    Order Lifecycle (existing states in DB)
+    Status flow: new → in_progress → ready → picking_up → delivered
+    Cancelled: cancelled (skips the chain)
+    Requests: orders table has is_request BOOLEAN and request_type TEXT
+    
+    Orders API (existing, in shared/api/orders.ts)
+    - createOrder() — inserts into orders + order_items. Currently: order inserts succeed, order_items fail (no RLS policy), then the order is rolled back via .delete()
+    - getActiveOrders(restaurantId) — fetches active orders filtered by restaurant_id
+    - updateOrderStatus(orderId, status, staffId) — updates order status + logs staff action
+    - subscribeToOrders(restaurantId, callback) — real-time subscription, filters by restaurant_id
+    - getOrdersByTable(restaurantId, tableId) — table-specific orders
+    
+    What I Built This Session
+    
+    1. src/shared/hooks/useStationFilter.ts — NEW
+    - useStationFilter(restaurantId) hook — fetches all menu_items for a restaurant, builds stationMap (menu_item_id → station)
+    - filterOrdersByStation(orders, stationMap, station) — filters order_items to only include those whose menu_item matches the requested station
+    - Uses the existing menu_items.station column — no new columns created
+    
+    2. Station filtering applied to views:
+    - KitchenView.tsx — filters to station='kitchen' or 'both'
+    - BarView.tsx — filters to station='bar' or 'both'
+    - ManagerDashboard.tsx — shows all stations (god view) with filter tabs
+    
+    3. Full-card clickability on all staff ticket cards:
+    - KitchenTicket card body: New→accepts, In Progress→marks ready
+    - BarTicket card body: New→accepts, In Progress→marks ready
+    - FOH TicketCard body: Ready→pickup, Picking Up→deliver
+    - All inner buttons have e.stopPropagation() to prevent double-firing
+    
+    4. updateOrderStatus() fixed (orders.ts):
+    - Now chains .select() after .update() so it actually detects RLS blocks
+    - Returns false when data comes back empty (RLS prevented the write)
+    - Staff action logging handles errors gracefully with console.warn
+    
+    5. All handlers now update local state on success:
+    - Kitchen: handleAccept and handleReady update setOrders immediately after DB write
+    - Bar: handleAccept and handleReady update setOrders immediately after DB write
+    - FOH: handlePickUp updates local order status; handleDeliver removes delivered order from list
+    
+    6. src/shared/api/orders.ts — updateOrderStatus refactored:
+    - Uses .select() to verify writes actually landed
+    - Lighter error handling on staff_actions insert (warn instead of fail)
+    
+    7. src/features/staff/auth/StaffLogin.tsx — changed:
+    - Changed PIN auto-submit from >= 6 to >= 4 to match actual 4-digit PINs
+    
+    What's Still Broken
+    The SQL file at ~/Documents/Project Apps/restaurant-platform/supabase/missing-rls-policies.sql needs to be pasted into Supabase SQL Editor to add all the missing write policies. Without this, every button that writes to the database silently does nothing.
+    
+    What We Haven't Touched (existing customer views)
+    - DiscoveryView.tsx — restaurant map/list
+    - MenuView.tsx — menu browsing, add to cart
+    - CartView.tsx — cart management
+    - CheckoutView.tsx — place order flow
+    - TrackingView.tsx — order tracking with status steps
+    - BillView.tsx — payment + tip
+    - FloorPlanView.tsx — table selection
+    - FeedbackView.tsx (implied via visit_feedback table)
+    - OwnerLogin.tsx — owner authentication with passcode + biometric
+    - Owner panel views (network overview, commissions, messaging, etc.)
+    
+    Conventions You Emphasized
+    - Use the same language as the database — don't invent new column names, types, or conventions
+    - No patchy code — lean, cohesive, same patterns throughout
+    - Every change must verify the full chain forward and backward
+    - After every change, check everything linked still works
+    

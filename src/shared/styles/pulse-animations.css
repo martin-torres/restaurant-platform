@@ -1,0 +1,46 @@
+/* ─── Table Status Pulse Animation ─── */
+@keyframes table-pulse-amber {
+  0% { box-shadow: 0 0 0 0 rgba(252, 196, 25, 0.6); }
+  50% { box-shadow: 0 0 0 8px rgba(252, 196, 25, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(252, 196, 25, 0); }
+}
+@keyframes table-pulse-red {
+  0% { box-shadow: 0 0 0 0 rgba(224, 49, 49, 0.6); }
+  50% { box-shadow: 0 0 0 8px rgba(224, 49, 49, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(224, 49, 49, 0); }
+}
+@keyframes table-pulse-green {
+  0% { box-shadow: 0 0 0 0 rgba(47, 158, 68, 0.6); }
+  50% { box-shadow: 0 0 0 8px rgba(47, 158, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(47, 158, 68, 0); }
+}
+@keyframes table-pulse-blue {
+  0% { box-shadow: 0 0 0 0 rgba(28, 126, 214, 0.6); }
+  50% { box-shadow: 0 0 0 8px rgba(28, 126, 214, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(28, 126, 214, 0); }
+}
+@keyframes table-pulse-indigo {
+  0% { box-shadow: 0 0 0 0 rgba(103, 65, 217, 0.6); }
+  50% { box-shadow: 0 0 0 8px rgba(103, 65, 217, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(103, 65, 217, 0); }
+}
+
+.pulse-amber { animation: table-pulse-amber 1.5s ease-out forwards; }
+.pulse-red { animation: table-pulse-red 1.5s ease-out forwards; }
+.pulse-green { animation: table-pulse-green 1.5s ease-out forwards; }
+.pulse-blue { animation: table-pulse-blue 1.5s ease-out forwards; }
+.pulse-indigo { animation: table-pulse-indigo 1.5s ease-out forwards; }
+
+/* ─── Toast slide-in animation ─── */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.animate-slide-in-right { animation: slide-in-right 0.35s var(--ease-out-expo); }
+
+/* ─── Badge pulse for ready orders count ─── */
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+.animate-badge-pulse { animation: badge-pulse 2s ease-in-out infinite; }

@@ -1,0 +1,15 @@
+{
+  "theme": {
+    "extend": {
+      "colors": {
+        "primary": "#5c7cfa",
+        "secondary": "#4c6ef5",
+        "accent": "#f59f00"
+      },
+      "fontFamily": {},
+      "fontSize": {},
+      "borderRadius": {},
+      "spacing": {}
+    }
+  }
+}
