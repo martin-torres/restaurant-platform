@@ -1,116 +1,404 @@
-// @ts-nocheck
-import { createClient } from '@insforge/sdk'
+/**
+ * Database client — PocketBase backend with a Supabase-style query facade.
+ * Existing API modules keep calling `supabase.from(...).select().eq()`, while
+ * records are stored in PocketBase collections.
+ */
 import { md5 } from 'js-md5'
+import {
+  pb,
+  toPbRecord,
+  fromPbRecord,
+  escapeFilter,
+} from './pocketbase'
 
-// ─── Configuration ────────────────────────────────────────────────────────────
+type Filter = { field: string; op: string; value: any }
 
-const insforgeUrl = import.meta.env.VITE_INSFORGE_URL || ''
-const insforgeAnonKey = import.meta.env.VITE_INSFORGE_ANON_KEY || ''
+class QueryBuilder {
+  private table: string
+  private filters: Filter[] = []
+  private orderField: string | null = null
+  private orderAsc = true
+  private limitN: number | null = null
+  private wantSingle = false
+  private wantMaybeSingle = false
+  private selectSpec = '*'
+  private mutate: null | { type: 'insert' | 'update' | 'delete'; payload?: any } = null
 
-if (!insforgeUrl || !insforgeAnonKey) {
-  console.warn(
-    'InsForge credentials not found. Set VITE_INSFORGE_URL and VITE_INSFORGE_ANON_KEY in .env'
-  )
-}
-
-// ─── Client ───────────────────────────────────────────────────────────────────
-
-const insforge = createClient({
-  baseUrl: insforgeUrl,
-  anonKey: insforgeAnonKey,
-})
-
-// ─── Database proxy ──────────────────────────────────────────────────────────
-
-// InsForge SDK returns a Postgrest query builder from .from().
-// Only .insert() needs wrapping — it expects an array for batch inserts,
-// but callers pass single objects.
-function wrapInsert(qb: any) {
-  const originalInsert = qb.insert.bind(qb)
-  qb.insert = (value: any) => {
-    return originalInsert(Array.isArray(value) ? value : [value])
+  constructor(table: string) {
+    this.table = table
   }
-  return qb
-}
 
-// ─── Realtime channel adapter ────────────────────────────────────────────────
-// Maps Supabase-style postgres_changes protocol to InsForge's channel model.
-//
-// Supabase:  .on('postgres_changes', { event, schema, table, filter }, cb)
-// InsForge:  .on(channelName, (msg) => ...)
-//
-// Channel naming:  db:{schema}:{table}  (e.g. db:public:orders)
+  select(_columns?: string) {
+    if (_columns) this.selectSpec = _columns
+    return this
+  }
+
+  insert(value: any) {
+    this.mutate = { type: 'insert', payload: value }
+    return this
+  }
+
+  update(value: any) {
+    this.mutate = { type: 'update', payload: value }
+    return this
+  }
+
+  delete() {
+    this.mutate = { type: 'delete' }
+    return this
+  }
+
+  eq(field: string, value: any) {
+    this.filters.push({ field, op: '=', value })
+    return this
+  }
+
+  neq(field: string, value: any) {
+    this.filters.push({ field, op: '!=', value })
+    return this
+  }
+
+  is(field: string, value: any) {
+    this.filters.push({ field, op: 'is', value })
+    return this
+  }
+
+  in(field: string, values: any[]) {
+    this.filters.push({ field, op: 'in', value: values })
+    return this
+  }
+
+  order(field: string, opts?: { ascending?: boolean }) {
+    this.orderField = field
+    this.orderAsc = opts?.ascending !== false
+    return this
+  }
+
+  limit(n: number) {
+    this.limitN = n
+    return this
+  }
+
+  single() {
+    this.wantSingle = true
+    return this.execute()
+  }
+
+  maybeSingle() {
+    this.wantMaybeSingle = true
+    return this.execute()
+  }
+
+  // Make the builder a proper PromiseLike so `await supabase.from(...).eq(...)` works
+  then<TResult1 = { data: any; error: any }, TResult2 = never>(
+    onfulfilled?:
+      | ((value: { data: any; error: any }) => TResult1 | PromiseLike<TResult1>)
+      | null
+      | undefined,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | null
+      | undefined
+  ): Promise<TResult1 | TResult2> {
+    return this.execute().then(onfulfilled ?? undefined, onrejected ?? undefined)
+  }
+
+  catch<TResult = never>(
+    onrejected?:
+      | ((reason: any) => TResult | PromiseLike<TResult>)
+      | null
+      | undefined
+  ): Promise<{ data: any; error: any } | TResult> {
+    return this.execute().catch(onrejected ?? undefined)
+  }
+
+  private mapField(field: string): string {
+    const aliases: Record<string, string> = {
+      restaurant_id: 'restaurant',
+      table_id: 'table',
+      floor_plan_id: 'floor_plan',
+      menu_item_id: 'menu_item',
+      order_id: 'order',
+      staff_id: 'staff',
+      linked_menu_item_id: 'linked_menu_item',
+      assigned_staff_id: 'assigned_staff',
+      created_at: 'created',
+      updated_at: 'updated',
+    }
+    return aliases[field] || field
+  }
+
+  private buildFilter(): string {
+    // PocketBase filter language — OR-chain for `in`
+    return this.filters
+      .map((f) => {
+        const field = this.mapField(f.field)
+        if (f.op === 'in') {
+          return (
+            '(' +
+            (f.value as any[])
+              .map((v) =>
+                typeof v === 'string'
+                  ? `${field}="${escapeFilter(v)}"`
+                  : `${field}=${v}`
+              )
+              .join(' || ') +
+            ')'
+          )
+        }
+        if (f.op === 'is' && f.value === null) return `${field}=null`
+        if (typeof f.value === 'string') {
+          return `${field}${f.op === '!=' ? '!=' : '='}"${escapeFilter(f.value)}"`
+        }
+        if (f.value === null) return `${field}=null`
+        if (typeof f.value === 'boolean') return `${field}=${f.value}`
+        return `${field}${f.op === '!=' ? '!=' : '='}${f.value}`
+      })
+      .join(' && ')
+  }
+
+  private async attachNested(records: any[]): Promise<any[]> {
+    // Support select('*, items:order_items(*)') and staff joins
+    const wantsItems =
+      this.selectSpec.includes('items:order_items') ||
+      this.selectSpec.includes('order_items')
+    const wantsStaff =
+      this.selectSpec.includes('staff:staff_id') ||
+      this.selectSpec.includes('staff(')
+
+    if (!wantsItems && !wantsStaff) {
+      return records.map((r) => fromPbRecord(r))
+    }
+
+    const mapped = records.map((r) => fromPbRecord(r))
+
+    if (wantsItems && this.table === 'orders') {
+      await Promise.all(
+        mapped.map(async (order) => {
+          try {
+            const items = await pb.collection('order_items').getFullList({
+              filter: `order="${order.id}"`,
+              sort: 'created',
+            })
+            order.items = items.map((i) => fromPbRecord(i))
+          } catch {
+            order.items = []
+          }
+        })
+      )
+    }
+
+    if (wantsStaff) {
+      await Promise.all(
+        mapped.map(async (row) => {
+          const staffId = row.staff_id
+          if (!staffId) return
+          try {
+            const staff = await pb.collection('staff').getOne(staffId)
+            row.staff = fromPbRecord(staff)
+          } catch {
+            /* ignore */
+          }
+        })
+      )
+    }
+
+    return mapped
+  }
+
+  private async execute(): Promise<{ data: any; error: any }> {
+    try {
+      if (this.mutate?.type === 'insert') {
+        const raw = this.mutate.payload
+        const rows = Array.isArray(raw) ? raw : [raw]
+        const created = []
+        for (const row of rows) {
+          const record = await pb
+            .collection(this.table)
+            .create(toPbRecord(row))
+          created.push(fromPbRecord(record))
+        }
+        // Nested items not inserted here — callers insert order_items separately
+        if (this.wantSingle || this.wantMaybeSingle) {
+          return { data: created[0] ?? null, error: null }
+        }
+        return { data: created, error: null }
+      }
+
+      if (this.mutate?.type === 'update') {
+        const filter = this.buildFilter()
+        const list = await pb.collection(this.table).getFullList({ filter })
+        if (list.length === 0) {
+          return {
+            data: this.wantSingle ? null : [],
+            error: this.wantSingle
+              ? { message: 'No rows affected' }
+              : null,
+          }
+        }
+        const updated = []
+        for (const row of list) {
+          const record = await pb
+            .collection(this.table)
+            .update(row.id, toPbRecord(this.mutate.payload || {}))
+          updated.push(fromPbRecord(record))
+        }
+        if (this.wantSingle || this.wantMaybeSingle) {
+          return { data: updated[0] ?? null, error: null }
+        }
+        return { data: updated, error: null }
+      }
+
+      if (this.mutate?.type === 'delete') {
+        const filter = this.buildFilter()
+        const list = await pb.collection(this.table).getFullList({ filter })
+        for (const row of list) {
+          await pb.collection(this.table).delete(row.id)
+        }
+        return { data: null, error: null }
+      }
+
+      // SELECT
+      const filter = this.buildFilter()
+      const sortField = this.orderField
+        ? `${this.orderAsc ? '' : '-'}${this.mapField(this.orderField)}`
+        : undefined
+
+      if (this.wantSingle || this.wantMaybeSingle) {
+        try {
+          const record = await pb.collection(this.table).getFirstListItem(filter || '', {
+            sort: sortField,
+          })
+          const [mapped] = await this.attachNested([record])
+          return { data: mapped, error: null }
+        } catch (err: any) {
+          if (this.wantMaybeSingle) return { data: null, error: null }
+          return {
+            data: null,
+            error: { message: err?.message || 'Not found', code: err?.status },
+          }
+        }
+      }
+
+      const options: any = {}
+      if (filter) options.filter = filter
+      if (sortField) options.sort = sortField
+
+      let records: any[]
+      if (this.limitN != null) {
+        const page = await pb.collection(this.table).getList(1, this.limitN, options)
+        records = page.items
+      } else {
+        records = await pb.collection(this.table).getFullList(options)
+      }
+
+      const mapped = await this.attachNested(records)
+      return { data: mapped, error: null }
+    } catch (err: any) {
+      console.error(`[db:${this.table}]`, err?.message || err)
+      return {
+        data: null,
+        error: {
+          message: err?.message || 'Database error',
+          data: err?.data,
+          status: err?.status,
+        },
+      }
+    }
+  }
+}
 
 function createChannel(name: string) {
   const handlers: Array<{
-    event: string
     config: any
     callback: (payload: any) => void
   }> = []
-
-  /** Convert raw InsForge message to Supabase-compatible envelope */
-  function envelope(raw: any, inferredEvent: string) {
-    // InsForge may deliver the record directly or wrapped
-    const record = raw?.record ?? raw?.payload ?? raw
-    const eventType = (raw?.type ?? raw?.event ?? inferredEvent).toUpperCase()
-    return { eventType, new: record, old: null }
-  }
+  let unsub: (() => void) | null = null
 
   return {
     on(_type: string, config: any, callback: (payload: any) => void) {
-      handlers.push({ event: _type, config, callback })
+      handlers.push({ config, callback })
       return this
     },
 
     subscribe() {
-      // Resolve InsForge channel name from config table or fall back to given name
-      const tableName = handlers[0]?.config?.table
-      const channelName = tableName ? `db:public:${tableName}` : name
+      const table = handlers[0]?.config?.table || 'orders'
 
-      insforge.realtime.subscribe(channelName).catch((e: any) =>
-        console.warn(`Realtime subscribe failed for ${channelName}:`, e)
-      )
+      const promise = pb
+        .collection(table)
+        .subscribe('*', (e) => {
+          const eventType =
+            e.action === 'create'
+              ? 'INSERT'
+              : e.action === 'update'
+                ? 'UPDATE'
+                : e.action === 'delete'
+                  ? 'DELETE'
+                  : String(e.action || '').toUpperCase()
+          const record = fromPbRecord(e.record)
+          const filter = handlers[0]?.config?.filter as string | undefined
+          if (filter && filter.includes('restaurant_id=eq.')) {
+            const rid = filter.split('restaurant_id=eq.')[1]
+            if (rid && record.restaurant_id && record.restaurant_id !== rid) return
+          }
+          if (filter && filter.startsWith('id=eq.')) {
+            const id = filter.slice('id=eq.'.length)
+            if (record.id !== id) return
+          }
+          for (const h of handlers) {
+            h.callback({ eventType, new: record, old: null })
+          }
+        })
+        .catch((err) => {
+          console.warn(`Realtime subscribe failed for ${table}:`, err)
+          return () => {}
+        })
 
-      // Forward InsForge messages to all registered Supabase-style handlers
-      const handler = (msg: any) => {
-        const env = envelope(msg, 'INSERT')
-        for (const h of handlers) {
-          h.callback(env)
-        }
+      unsub = () => {
+        promise.then((u) => {
+          if (typeof u === 'function') u()
+        })
       }
-      insforge.realtime.on(channelName, handler as any)
 
-      return { unsubscribe: () => insforge.realtime.unsubscribe(channelName) }
+      return {
+        unsubscribe: () => {
+          if (unsub) unsub()
+        },
+      }
     },
 
-    /** Unsubscribe without calling .subscribe() first (used by removeChannel) */
     _unsubscribe() {
-      const tableName = handlers[0]?.config?.table
-      const channelName = tableName ? `db:public:${tableName}` : name
-      insforge.realtime.unsubscribe(channelName)
+      if (unsub) unsub()
+      try {
+        pb.collection(handlers[0]?.config?.table || 'orders').unsubscribe('*')
+      } catch {
+        /* ignore */
+      }
     },
   }
 }
 
-// ─── Supabase-compatible facade ──────────────────────────────────────────────
-
 export const supabase = {
   from(table: string) {
-    return wrapInsert(insforge.database.from(table))
+    return new QueryBuilder(table)
   },
 
-  rpc(fn: string, params?: Record<string, any>) {
-    return insforge.database.rpc(fn, params)
+  rpc(_fn: string, _params?: Record<string, any>) {
+    console.warn('rpc() is not implemented on PocketBase facade')
+    return Promise.resolve({ data: null, error: { message: 'rpc not supported' } })
   },
 
   channel(name: string) {
     return createChannel(name)
   },
 
-  /** Remove a realtime subscription by channel name or subscription ref */
   removeChannel(channel: any) {
     if (typeof channel === 'string') {
-      insforge.realtime.unsubscribe(channel)
+      try {
+        pb.collection(channel).unsubscribe()
+      } catch {
+        /* ignore */
+      }
     } else if (typeof channel?._unsubscribe === 'function') {
       channel._unsubscribe()
     } else if (typeof channel?.unsubscribe === 'function') {
@@ -119,66 +407,25 @@ export const supabase = {
   },
 
   auth: {
-    getSession: async () => {
-      try {
-        const { data: user, error } = await insforge.auth.getCurrentUser()
-        if (!user || error) {
-          return { data: { session: null }, error: null }
-        }
-        // Wrap in Supabase-compatible session shape
-        return {
-          data: {
-            session: {
-              user,
-              access_token: user.accessToken ?? null,
-              provider: 'insforge',
-            },
-          },
-          error: null,
-        }
-      } catch {
-        return { data: { session: null }, error: null }
-      }
-    },
-
-    signInWithPassword: async (credentials: {
-      email: string
-      password: string
-    }) => {
-      return insforge.auth.signInWithPassword({
-        email: credentials.email,
-        password: credentials.password,
-      })
-    },
-
-    signOut: async () => {
-      return insforge.auth.signOut()
-    },
-
-    onAuthStateChange: () => {
-      // InsForge doesn't expose a native auth listener yet.
-      // Return a no-op subscription to match the Supabase interface.
-      console.warn('onAuthStateChange is a no-op — InsForge auth events not wired')
-      return {
-        data: {
-          subscription: {
-            unsubscribe: () => {},
-          },
-        },
-      }
-    },
-
-    // Expose the underlying InsForge auth for advanced usage
-    _insforgeAuth: insforge.auth,
+    getSession: async () => ({ data: { session: null }, error: null }),
+    signInWithPassword: async () => ({
+      data: { session: null },
+      error: { message: 'Use staff/owner PIN login' },
+    }),
+    signOut: async () => ({ error: null }),
+    onAuthStateChange: () => ({
+      data: { subscription: { unsubscribe: () => {} } },
+    }),
   },
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 export function stringIdToUuid(id: string): string {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (uuidRegex.test(id)) return id
-
+  // PocketBase ids are 15-char alphanumeric — pass through
+  if (/^[a-z0-9]{15}$/i.test(id)) return id
+  // Slugs and legacy string ids — caller should resolve via lookup
   const hash = md5(id)
   return (
     hash.substring(0, 8) +
@@ -193,14 +440,43 @@ export function stringIdToUuid(id: string): string {
   )
 }
 
+/**
+ * Resolve restaurant id from URL. Accepts:
+ * - PocketBase record id (15 chars)
+ * - slug (e.g. di-pasquale)
+ * - legacy string ids (r_dipasquale) — resolved async by callers via slug
+ */
 export function getRestaurantIdFromUrl(): string | null {
   const params = new URLSearchParams(window.location.search)
-  const id = params.get('restaurant_id')
-  if (!id) return null
-  return stringIdToUuid(id)
+  return params.get('restaurant_id')
 }
 
 export function getQrTypeFromUrl(): string | null {
   const params = new URLSearchParams(window.location.search)
   return params.get('qr_type')
+}
+
+/** Resolve a restaurant_id query value (id or slug) to a PocketBase record id. */
+export async function resolveRestaurantId(
+  raw: string | null
+): Promise<string | null> {
+  if (!raw) return null
+  if (/^[a-z0-9]{15}$/i.test(raw)) return raw
+  try {
+    const bySlug = await pb
+      .collection('restaurants')
+      .getFirstListItem(`slug="${escapeFilter(raw)}"`)
+    return bySlug.id
+  } catch {
+    // try legacy slug forms: r_dipasquale → di-pasquale
+    const normalized = raw.replace(/^r_/, '').replace(/_/g, '-')
+    try {
+      const bySlug = await pb
+        .collection('restaurants')
+        .getFirstListItem(`slug="${escapeFilter(normalized)}"`)
+      return bySlug.id
+    } catch {
+      return raw
+    }
+  }
 }

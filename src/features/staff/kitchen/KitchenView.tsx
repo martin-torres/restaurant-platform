@@ -137,7 +137,7 @@ export default function KitchenView() {
     try {
       setLoading(true)
       const data = await getActiveOrders(restaurantId)
-      setOrders(data.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled' && o.status !== 'picking_up'))
+      setOrders(data.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled' && o.status !== 'picking_up' && o.status !== 'paid'))
       setError(null)
     } catch (err) { setError('Failed to load orders') } finally { setLoading(false) }
   }, [restaurantId])
@@ -164,7 +164,13 @@ export default function KitchenView() {
     const success = await updateStationStatus(orderId, 'kitchen', 'in_progress')
     if (success) {
       if (session) await logStaffAction(session.staff.id, 'kitchen_accepted', { order_id: orderId })
-      setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, kitchen_status: 'in_progress' } : o))
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? { ...o, kitchen_status: 'in_progress', status: o.status === 'new' ? 'in_progress' : o.status }
+            : o
+        )
+      )
     }
   }, [session])
 
@@ -172,7 +178,17 @@ export default function KitchenView() {
     const success = await updateStationStatus(orderId, 'kitchen', 'ready')
     if (success) {
       if (session) await logStaffAction(session.staff.id, 'kitchen_ready', { order_id: orderId })
-      setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, kitchen_status: 'ready' } : o))
+      setOrders((prev) =>
+        prev.map((o) => {
+          if (o.id !== orderId) return o
+          const barDone = !o.bar_status || o.bar_status === 'ready'
+          return {
+            ...o,
+            kitchen_status: 'ready',
+            status: barDone ? 'ready' : o.status,
+          }
+        })
+      )
     }
   }, [session])
 

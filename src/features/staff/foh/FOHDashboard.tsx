@@ -14,13 +14,18 @@ import {
   PanelRightOpen,
   PanelRightClose,
   ShoppingBag,
+  CreditCard,
+  Smartphone,
+  Banknote,
 } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import {
   getActiveOrders,
   updateOrderStatus,
   subscribeToOrders,
+  processPayment,
 } from '../../../shared/api/orders'
+import type { PaymentMethod } from '../../../types'
 import { getTables, subscribeToTables } from '../../../shared/api/tables'
 import { useOrderContext } from '../../../shared/contexts/OrderContext'
 import {
@@ -149,6 +154,8 @@ export default function FOHDashboard() {
   const [activeView, setActiveView] = useState<
     'floor' | 'requests' | 'payment'
   >('floor')
+  const [payingOrderId, setPayingOrderId] = useState<string | null>(null)
+  const [fohPayMethod, setFohPayMethod] = useState<PaymentMethod>('card')
 
   const { addNotification } = useOrderContext()
 
@@ -541,36 +548,98 @@ export default function FOHDashboard() {
           </div>
         )}
 
-        {/* Payment View */}
+        {/* Payment View — delivered / ready-to-close unpaid orders */}
         {activeView === 'payment' && (
           <div className="mt-6 space-y-3">
             <h3 className="text-sm font-semibold text-text flex items-center gap-2">
-              <ShoppingBag className="w-4 h-4" />
+              <CreditCard className="w-4 h-4" />
               In-Person Payments
             </h3>
-            {orders.filter((o) => o.status === 'picking_up').length === 0 ? (
+            <p className="text-xs text-text-muted">
+              Collect card, phone wallet, or cash for delivered unpaid checks.
+            </p>
+            {orders.filter(
+              (o) =>
+                (o.status === 'delivered' || o.status === 'picking_up' || o.status === 'ready') &&
+                o.payment_status !== 'paid'
+            ).length === 0 ? (
               <p className="text-text-muted text-xs">No pending payments</p>
             ) : (
               orders
-                .filter((o) => o.status === 'picking_up')
+                .filter(
+                  (o) =>
+                    (o.status === 'delivered' || o.status === 'picking_up' || o.status === 'ready') &&
+                    o.payment_status !== 'paid'
+                )
                 .map((o) => (
                   <div
                     key={o.id}
-                    className="bg-surface-alt border border-border rounded-lg p-3 flex items-center justify-between"
+                    className="bg-surface-alt border border-border rounded-lg p-3 space-y-3"
                   >
-                    <div>
-                      <p className="text-sm text-text font-medium">
-                        {o.customer_name || `Order #${o.id.slice(0, 8)}`}
-                      </p>
-                      <p className="text-xs text-text-secondary">
-                        ${o.total.toFixed(2)} • {o.order_type}
-                      </p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-text font-medium">
+                          {o.customer_name || `Order #${o.id.slice(0, 8)}`}
+                        </p>
+                        <p className="text-xs text-text-secondary">
+                          ${o.total.toFixed(2)} • {o.order_type} • {o.status}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(
+                        [
+                          ['card', CreditCard, 'Card'],
+                          ['phone', Smartphone, 'Phone'],
+                          ['cash', Banknote, 'Cash'],
+                        ] as const
+                      ).map(([method, Icon, label]) => (
+                        <button
+                          key={method}
+                          onClick={() => {
+                            setPayingOrderId(o.id)
+                            setFohPayMethod(method)
+                          }}
+                          className={`flex flex-col items-center gap-1 py-2 rounded-lg text-[11px] font-semibold border transition-all ${
+                            payingOrderId === o.id && fohPayMethod === method
+                              ? 'border-brand-500 bg-brand-500/10 text-brand-500'
+                              : 'border-border text-text-secondary hover:bg-surface-hover'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          {label}
+                        </button>
+                      ))}
                     </div>
                     <button
-                      onClick={() => handleDeliver(o.id)}
-                      className="px-3 py-1.5 bg-fp-green text-white text-xs rounded-lg hover:brightness-110"
+                      disabled={payingOrderId === o.id && false}
+                      onClick={async () => {
+                        setPayingOrderId(o.id)
+                        const result = await processPayment({
+                          order_id: o.id,
+                          restaurant_id: o.restaurant_id,
+                          method: payingOrderId === o.id ? fohPayMethod : 'card',
+                          amount: o.total,
+                          subtotal: o.subtotal,
+                          tip: o.tip || 0,
+                          processed_by: session?.staff.id,
+                        })
+                        if (result.ok) {
+                          if (session) {
+                            await logStaffAction(session.staff.id, 'payment_collected', {
+                              order_id: o.id,
+                              method: fohPayMethod,
+                            })
+                          }
+                          setOrders((prev) => prev.filter((x) => x.id !== o.id))
+                          setPayingOrderId(null)
+                        } else {
+                          alert(result.error || 'Payment failed')
+                        }
+                      }}
+                      className="w-full py-2 bg-fp-green text-white text-xs font-semibold rounded-lg hover:brightness-110"
                     >
-                      Mark Paid
+                      Collect {payingOrderId === o.id ? fohPayMethod : 'card'} · ${o.total.toFixed(2)}
                     </button>
                   </div>
                 ))

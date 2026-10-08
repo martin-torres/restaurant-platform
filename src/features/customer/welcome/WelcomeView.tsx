@@ -5,7 +5,7 @@ import {
   UtensilsCrossed, MapPin, ChevronRight, Clock, Star, Sparkles,
   Loader2, AlertCircle, Percent, ArrowRight, Tag, Timer, Store, Search, LayoutGrid, Flame, ArrowUpRight, X, ShoppingBag
 } from 'lucide-react'
-import { supabase, getRestaurantIdFromUrl } from '../../../lib/supabase'
+import { supabase, getRestaurantIdFromUrl, resolveRestaurantId } from '../../../lib/supabase'
 import type { Restaurant, Promo } from '../../../types'
 import { useCartStore } from '../../../shared/hooks/useCartStore'
 
@@ -33,16 +33,23 @@ export default function WelcomeView() {
     const params = new URLSearchParams(window.location.search)
     const slug = params.get('restaurant_id') || ''
     setRestaurantSlug(slug)
-    const restaurantId = getRestaurantIdFromUrl()
-    if (!restaurantId) {
-      setError('No restaurant specified. Please scan a QR code to get started.')
-      setLoading(false)
-      return
-    }
-    setRestaurantId(restaurantId)
 
     const fetchData = async () => {
       try {
+        const raw = getRestaurantIdFromUrl()
+        if (!raw) {
+          setError('No restaurant specified. Please scan a QR code to get started.')
+          setLoading(false)
+          return
+        }
+        const restaurantId = await resolveRestaurantId(raw)
+        if (!restaurantId) {
+          setError('Restaurant not found.')
+          setLoading(false)
+          return
+        }
+        setRestaurantId(restaurantId)
+
         const { data: restData, error: restErr } = await supabase
           .from('restaurants').select('*').eq('id', restaurantId).single()
         if (restErr) throw restErr

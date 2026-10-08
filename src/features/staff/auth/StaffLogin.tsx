@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { authenticateStaff, clockIn } from '../../../shared/api/staff'
 import type { StaffMember } from '../../../types'
-import { stringIdToUuid } from '../../../lib/supabase'
+import { resolveRestaurantId } from '../../../lib/supabase'
 
 let _staffSession: { staff: StaffMember; restaurantId: string } | null = null
 
@@ -51,7 +51,11 @@ export default function StaffLogin() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const rid = params.get('restaurant_id')
-    if (rid) setRestaurantId(stringIdToUuid(rid))
+    if (rid) {
+      resolveRestaurantId(rid).then((id) => {
+        if (id) setRestaurantId(id)
+      })
+    }
     setTimeout(() => pinInputRef.current?.focus(), 300)
   }, [])
 
@@ -70,12 +74,14 @@ export default function StaffLogin() {
     if (!restaurantId.trim()) { setError('Restaurant ID is required'); return }
     setLoading(true)
     try {
-      const staff = await authenticateStaff(restaurantId.trim(), fullPin)
+      const rid = (await resolveRestaurantId(restaurantId.trim())) || restaurantId.trim()
+      const staff = await authenticateStaff(rid, fullPin)
       if (staff) {
-        setStaffSession(staff, restaurantId.trim())
+        setStaffSession(staff, rid)
+        setRestaurantId(rid)
         setStaffName(staff.name); setError(null)
         // Auto clock-in — fire and forget (don't block login on clock-in failure)
-        clockIn(staff.id, restaurantId.trim()).catch(() => {})
+        clockIn(staff.id, rid).catch(() => {})
         setTimeout(() => { const route = ROLE_ROUTES[staff.role] || '/staff/foh'; navigate(route) }, 600)
       } else { setError('Invalid PIN'); setPin(''); setPinDisplay([]) }
     } catch (err) { setError('Connection error'); setPin(''); setPinDisplay([]) } finally { setLoading(false) }

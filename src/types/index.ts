@@ -5,9 +5,10 @@
 // ─── Enums ───
 export type TableShape = 'circle' | 'square' | 'rectangle' | 'booth_u' | 'booth_half_u' | 'bar';
 export type StaffRole = 'manager' | 'server' | 'foh' | 'kitchen' | 'bar' | 'owner';
-export type OrderStatus = 'new' | 'in_progress' | 'ready' | 'picking_up' | 'delivered' | 'cancelled';
+export type OrderStatus = 'new' | 'in_progress' | 'ready' | 'picking_up' | 'delivered' | 'cancelled' | 'paid';
 export type OrderType = 'dine_in' | 'to_go' | 'delivery';
-export type PaymentMethod = 'wallet' | 'card' | 'cash';
+/** card = credit/debit · phone = Apple Pay / Google Pay / phone wallet · cash */
+export type PaymentMethod = 'card' | 'phone' | 'cash' | 'wallet'
 export type QrType = 'customer' | 'server' | 'kitchen' | 'manager' | 'owner';
 export type MessageUrgency = 'normal' | 'urgent' | 'critical';
 export type HealthStatus = 'healthy' | 'warning' | 'critical';
@@ -192,6 +193,7 @@ export interface Order {
   seat_number?: number;
   order_type: OrderType;
   status: OrderStatus;
+  payment_status?: 'unpaid' | 'paid' | 'refunded';
   subtotal: number;
   total: number;
   tip: number;

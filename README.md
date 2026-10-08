@@ -1,73 +1,49 @@
-# React + TypeScript + Vite
+# Restaurant Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+UI-first restaurant ordering & floor-plan management app, now backed by **PocketBase**.
 
-Currently, two official plugins are available:
+## Surfaces
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Who | Entry | Layout |
+|-----|-------|--------|
+| Customer | `/?restaurant_id=di-pasquale` | Mobile tabs: Home → Menu → Floor Plan → Cart → Discover |
+| Kitchen | `/staff/login` PIN `1113` | 3-column ticket rail (New / In Progress / Ready) |
+| Bar | PIN `1114` | Same rail, drinks only |
+| FOH / Manager floor | PIN `1112` | **Left sidebar · center floor plan · right tickets** |
+| Manager | PIN `1111` | Left nav + floor editor / menu / staff / analytics / inventory |
+| Owner | `/owner/login` | Network dashboard |
 
-## React Compiler
+## Order → Kitchen → Payment (fixed)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Customer places order at `/checkout` → status `new`, stations set from menu items  
+2. Kitchen/Bar accept → overall status rolls up to `in_progress`  
+3. Both stations ready → overall status `ready` (FOH sees red tickets)  
+4. FOH pick up → `picking_up` → deliver → `delivered`  
+5. Customer `/bill/:id` or FOH Payment panel → **Card / Phone / Cash** → `payment_status: paid`
 
-## Expanding the ESLint configuration
+## Local setup
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+```bash
+npm install
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+# PocketBase binary (once)
+curl -sL https://github.com/pocketbase/pocketbase/releases/download/v0.25.9/pocketbase_0.25.9_linux_amd64.zip -o /tmp/pb.zip
+unzip -o /tmp/pb.zip -d pocketbase/
+./pocketbase/pocketbase superuser upsert admin@restaurant.local admin123456 --dir=./pocketbase/pb_data
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+# Terminal A — API
+npm run pb:serve
+npm run pb:setup
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Terminal B — UI
+cp .env.example .env
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open http://localhost:5173/?restaurant_id=di-pasquale
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+See `pocketbase/README.md` for admin/dashboard details.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Trash
+
+Unused / legacy Supabase·InsForge files live in `src/_trash/` (not imported by the live app).

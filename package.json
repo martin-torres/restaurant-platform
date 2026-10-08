@@ -7,16 +7,17 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "pb:serve": "./pocketbase/pocketbase serve --http=127.0.0.1:8090 --dir=./pocketbase/pb_data",
+    "pb:setup": "node scripts/setup-pocketbase.mjs",
+    "pb:seed": "node scripts/setup-pocketbase.mjs"
   },
   "dependencies": {
-    "@insforge/sdk": "^1.2.7",
     "@tailwindcss/vite": "^4.2.4",
-    "bcryptjs": "^3.0.3",
     "i18next": "^26.0.10",
     "js-md5": "^0.8.3",
     "lucide-react": "^1.14.0",
-    "pg": "^8.20.0",
+    "pocketbase": "^0.28.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-i18next": "^17.0.7",
@@ -28,7 +29,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@supabase/supabase-js": "^2.105.4",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

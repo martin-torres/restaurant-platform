@@ -3,13 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Loader2, AlertCircle, ChevronLeft, Clock, Hash, KeyRound,
-  CheckCircle2, Home, User, MapPin, ShoppingBag, PackageOpen, ChefHat, Bike, ThumbsUp, Receipt
+  CheckCircle2, Home, MapPin, ShoppingBag, PackageOpen, ChefHat, Bike, ThumbsUp, Receipt
 } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { subscribeToOrders } from '../../../shared/api/orders'
 import type { Order, OrderStatus } from '../../../types'
 
-type RealtimeChannel = ReturnType<typeof supabase.channel>
+type RealtimeChannel = { unsubscribe: () => void }
 
 const STATUS_ORDER: OrderStatus[] = ['new', 'in_progress', 'ready', 'picking_up', 'delivered']
 
@@ -19,15 +18,16 @@ const STATUS_META: Record<OrderStatus, { color: string; bg: string; border: stri
   ready: { color: 'text-fp-red', bg: 'bg-fp-red/10', border: 'border-fp-red', icon: PackageOpen },
   picking_up: { color: 'text-fp-yellow', bg: 'bg-fp-yellow/10', border: 'border-fp-yellow', icon: Bike },
   delivered: { color: 'text-success', bg: 'bg-success/10', border: 'border-success', icon: CheckCircle2 },
+  paid: { color: 'text-success', bg: 'bg-success/10', border: 'border-success', icon: Receipt },
   cancelled: { color: 'text-danger', bg: 'bg-danger/10', border: 'border-danger', icon: AlertCircle },
 }
 
 const STATUS_LABELS: Record<string, string> = {
   new: 'Order Received', in_progress: 'Preparing', ready: 'Ready for Pickup',
-  picking_up: 'On Its Way', delivered: 'Delivered', cancelled: 'Cancelled',
+  picking_up: 'On Its Way', delivered: 'Delivered', paid: 'Paid', cancelled: 'Cancelled',
 }
 
-function StatusTimeline({ currentIdx, status }: { currentIdx: number; status: OrderStatus }) {
+function StatusTimeline({ currentIdx }: { currentIdx: number; status: OrderStatus }) {
   return (
     <div className="relative">
       {/* Connecting line */}
@@ -103,7 +103,8 @@ export default function TrackingView() {
 
   const currentStatus = order?.status || 'new'
   const currentIdx = STATUS_ORDER.indexOf(currentStatus as OrderStatus)
-  const isDelivered = currentStatus === 'delivered'
+  const isDelivered = currentStatus === 'delivered' || currentStatus === 'paid'
+  const isPaid = currentStatus === 'paid' || order?.payment_status === 'paid'
   const isCancelled = currentStatus === 'cancelled'
   const orderNumber = orderId ? orderId.slice(0, 8).toUpperCase() : ''
   const statusMeta = STATUS_META[currentStatus as OrderStatus] || STATUS_META.new
@@ -189,7 +190,7 @@ export default function TrackingView() {
             <h2 className="text-xl font-bold text-text mb-1">Order Delivered!</h2>
             <p className="text-text-secondary text-sm mb-6">Enjoy your meal! How was everything?</p>
             <div className="flex flex-col gap-2">
-              {order.order_type === 'dine_in' && (
+              {!isPaid && (
                 <button onClick={() => navigate(`/bill/${orderId}`)} className="w-full px-6 py-3 bg-brand-500 text-white rounded-2xl font-bold text-sm hover:bg-brand-600 active:scale-95 transition-all shadow-lg shadow-brand-500/20 flex items-center justify-center gap-2">
                   <Receipt className="w-4 h-4" /> Request Bill & Pay
                 </button>
@@ -230,7 +231,7 @@ export default function TrackingView() {
 
         {/* Home */}
         <div className="flex items-center justify-center gap-3 pb-8">
-          {order.order_type === 'dine_in' && isDelivered && (
+          {isDelivered && !isPaid && (
             <button onClick={() => navigate(`/bill/${orderId}`)} className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-500 text-white rounded-2xl text-sm font-bold hover:bg-brand-600 active:scale-95 transition-all shadow-md shadow-brand-500/20">
               <Receipt className="w-4 h-4" /> View Bill & Pay
             </button>

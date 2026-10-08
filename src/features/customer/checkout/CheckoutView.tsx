@@ -5,7 +5,7 @@ import {
   ChevronLeft, User, ClipboardList, MessageSquare,
   Loader2, AlertCircle, CheckCircle2, Hash, ShoppingBag, CreditCard, Store, Sofa, Bike
 } from 'lucide-react'
-import { supabase, getRestaurantIdFromUrl } from '../../../lib/supabase'
+import { getRestaurantIdFromUrl, resolveRestaurantId } from '../../../lib/supabase'
 import { createOrder } from '../../../shared/api/orders'
 import { useCartStore } from '../../../shared/hooks/useCartStore'
 import type { OrderType } from '../../../types'
@@ -37,7 +37,7 @@ export default function CheckoutView() {
 
   const handlePlaceOrder = async () => {
     if (items.length === 0) return
-    const rid = restaurantId || getRestaurantIdFromUrl()
+    const rid = await resolveRestaurantId(restaurantId || getRestaurantIdFromUrl())
     if (!rid) { setError('No restaurant selected.'); return }
     setPlacing(true); setError(null)
     try {
