@@ -176,9 +176,9 @@ class QueryBuilder {
       await Promise.all(
         mapped.map(async (order) => {
           try {
+            // Do not sort by system `created` — PocketBase returns 400 on that sort here.
             const items = await pb.collection('order_items').getFullList({
               filter: `order="${order.id}"`,
-              sort: 'created',
             })
             order.items = items.map((i) => fromPbRecord(i))
           } catch {
@@ -260,15 +260,24 @@ class QueryBuilder {
 
       // SELECT
       const filter = this.buildFilter()
-      const sortField = this.orderField
-        ? `${this.orderAsc ? '' : '-'}${this.mapField(this.orderField)}`
-        : undefined
+      // PocketBase rejects sort on system created/updated in some builds — sort in JS instead.
+      const needsClientSort =
+        this.orderField === 'created_at' ||
+        this.orderField === 'updated_at' ||
+        this.orderField === 'created' ||
+        this.orderField === 'updated'
+      const sortField =
+        this.orderField && !needsClientSort
+          ? `${this.orderAsc ? '' : '-'}${this.mapField(this.orderField)}`
+          : undefined
 
       if (this.wantSingle || this.wantMaybeSingle) {
         try {
-          const record = await pb.collection(this.table).getFirstListItem(filter || '', {
-            sort: sortField,
-          })
+          const opts: any = {}
+          if (sortField) opts.sort = sortField
+          const record = await pb
+            .collection(this.table)
+            .getFirstListItem(filter || '', opts)
           const [mapped] = await this.attachNested([record])
           return { data: mapped, error: null }
         } catch (err: any) {
@@ -290,6 +299,17 @@ class QueryBuilder {
         records = page.items
       } else {
         records = await pb.collection(this.table).getFullList(options)
+      }
+
+      if (needsClientSort && this.orderField) {
+        const key = this.mapField(this.orderField)
+        const asc = this.orderAsc
+        records = [...records].sort((a, b) => {
+          const av = a[key] || a.created || ''
+          const bv = b[key] || b.created || ''
+          if (av === bv) return 0
+          return asc ? (av < bv ? -1 : 1) : av < bv ? 1 : -1
+        })
       }
 
       const mapped = await this.attachNested(records)
