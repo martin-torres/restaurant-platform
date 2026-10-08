@@ -5,7 +5,7 @@ import {
   Search, Plus, Minus, ShoppingCart, Loader2, AlertCircle,
   ChevronLeft, ImageOff, Check, UtensilsCrossed, X, SlidersHorizontal
 } from 'lucide-react'
-import { supabase, getRestaurantIdFromUrl } from '../../../lib/supabase'
+import { supabase, getRestaurantIdFromUrl, resolveRestaurantId } from '../../../lib/supabase'
 import type { MenuItem } from '../../../types'
 import { useCartStore } from '../../../shared/hooks/useCartStore'
 
@@ -28,10 +28,14 @@ export default function MenuView() {
   const itemCount = useCartStore((s) => s.getItemCount())
 
   useEffect(() => {
-    const restaurantId = getRestaurantIdFromUrl() || useCartStore.getState().restaurant_id
-    if (!restaurantId) { setError('No restaurant specified.'); setLoading(false); return }
     const fetchMenu = async () => {
       try {
+        const raw = getRestaurantIdFromUrl() || useCartStore.getState().restaurant_id
+        const restaurantId = await resolveRestaurantId(raw)
+        if (!restaurantId) { setError('No restaurant specified.'); setLoading(false); return }
+        if (!useCartStore.getState().restaurant_id) {
+          useCartStore.getState().setRestaurantId(restaurantId)
+        }
         const { data, error: err } = await supabase
           .from('menu_items').select('*').eq('restaurant_id', restaurantId).eq('is_available', true).order('sort_order')
         if (err) throw err

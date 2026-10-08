@@ -5,7 +5,7 @@ import {
   Loader2, AlertCircle, ChevronLeft, MapPin, CheckCircle2, Table2, Users, Circle,
   Maximize2, Minimize2, UtensilsCrossed,
 } from 'lucide-react'
-import { supabase, getRestaurantIdFromUrl } from '../../../lib/supabase'
+import { supabase, getRestaurantIdFromUrl, resolveRestaurantId } from '../../../lib/supabase'
 import { useCartStore } from '../../../shared/hooks/useCartStore'
 import FloorPlanCanvas, { useTableStatusMap } from '../../../shared/components/FloorPlanCanvas'
 import { STATUS_LABELS } from '../../../shared/utils/floorPlanColors'
@@ -34,25 +34,31 @@ export default function FloorPlanView() {
   const setTable = useCartStore((s) => s.setTable)
   const storeTableId = useCartStore((s) => s.table_id)
   const containerRef = useRef<HTMLDivElement>(null)
-  const restaurantId = getRestaurantIdFromUrl() || useCartStore.getState().restaurant_id
+  const [restaurantId, setRestaurantId] = useState<string | null>(
+    useCartStore.getState().restaurant_id || null
+  )
 
   // Compute table statuses using the shared utility
   const tableStatusMap = useTableStatusMap(tables, ordersList, 'customer')
 
   useEffect(() => {
-    if (!restaurantId) { setError('No restaurant specified.'); setLoading(false); return }
     const fetchTablesAndOrders = async () => {
       try {
+        const raw = getRestaurantIdFromUrl() || useCartStore.getState().restaurant_id
+        const rid = await resolveRestaurantId(raw)
+        if (!rid) { setError('No restaurant specified.'); setLoading(false); return }
+        setRestaurantId(rid)
         const { data: tableData, error: tableErr } = await supabase
-          .from('restaurant_tables').select('*').eq('restaurant_id', restaurantId).eq('visible_to_customers', true).order('table_number')
+          .from('restaurant_tables').select('*').eq('restaurant_id', rid).eq('visible_to_customers', true).order('table_number')
         if (tableErr) throw tableErr
         const fetchedTables = (tableData as RestaurantTable[]) || []
         const { data: orderData } = await supabase
           .from('orders')
           .select('id, table_id, status, is_request')
-          .eq('restaurant_id', restaurantId)
+          .eq('restaurant_id', rid)
           .neq('status', 'delivered')
           .neq('status', 'cancelled')
+          .neq('status', 'paid')
         const orders = ((orderData as any[]) || []).map((o: any) => ({
           id: o.id,
           table_id: o.table_id,
@@ -66,10 +72,10 @@ export default function FloorPlanView() {
     }
     fetchTablesAndOrders()
     const channel = supabase.channel('floor-plan-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurantId}` }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: restaurantId ? `restaurant_id=eq.${restaurantId}` : undefined }, (payload) => {
         const order = payload.new as any
         setOrdersList((prev) => {
-          if (order.status === 'delivered' || order.status === 'cancelled') {
+          if (order.status === 'delivered' || order.status === 'cancelled' || order.status === 'paid') {
             return prev.filter((o) => o.id !== order.id)
           }
           const idx = prev.findIndex((o) => o.id === order.id)

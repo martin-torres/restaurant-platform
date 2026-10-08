@@ -322,7 +322,13 @@ export default function BarView() {
       )
       if (success) {
         if (session) await logStaffAction(session.staff.id, 'bar_accepted', { order_id: orderId })
-        setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, bar_status: 'in_progress' } : o))
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === orderId
+              ? { ...o, bar_status: 'in_progress', status: o.status === 'new' ? 'in_progress' : o.status }
+              : o
+          )
+        )
       }
     },
     [session]
@@ -337,7 +343,17 @@ export default function BarView() {
       )
       if (success) {
         if (session) await logStaffAction(session.staff.id, 'bar_ready', { order_id: orderId })
-        setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, bar_status: 'ready' } : o))
+        setOrders((prev) =>
+          prev.map((o) => {
+            if (o.id !== orderId) return o
+            const kitchenDone = !o.kitchen_status || o.kitchen_status === 'ready'
+            return {
+              ...o,
+              bar_status: 'ready',
+              status: kitchenDone ? 'ready' : o.status,
+            }
+          })
+        )
       }
     },
     [session]

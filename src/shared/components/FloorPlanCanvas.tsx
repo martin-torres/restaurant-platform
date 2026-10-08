@@ -139,6 +139,9 @@ export default function FloorPlanCanvas({
     return map
   }, [tables, orders, statusMode, showElapsed])
 
+  // Live pulse rings when table / order status changes
+  const pulsingIds = useTableStatusPulses(tables, orders)
+
   const canvasW = floorPlan?.canvas_w || Math.max(...tables.map((t) => t.x + t.width), ...floorProps.map((p) => p.x + p.width), 400)
   const canvasH = floorPlan?.canvas_h || Math.max(...tables.map((t) => t.y + t.height), ...floorProps.map((p) => p.y + p.height), 400)
   const gridSize = floorPlan?.grid_size || 20
@@ -214,6 +217,7 @@ export default function FloorPlanCanvas({
             showChairs={showChairs}
             showSeatNumbers={showSeatNumbers}
             showElapsed={showElapsed}
+            pulsingIds={pulsingIds}
             onClick={onTableClick}
             onMouseDown={onTableMouseDown}
           />
@@ -233,6 +237,7 @@ interface TableElementProps {
   showChairs: boolean
   showSeatNumbers: boolean
   showElapsed: boolean
+  pulsingIds: Set<string>
   onClick?: (table: RestaurantTable) => void
   onMouseDown?: (e: React.MouseEvent, tableId: string) => void
 }
@@ -245,6 +250,7 @@ function TableElement({
   showChairs,
   showSeatNumbers,
   showElapsed,
+  pulsingIds,
   onClick,
   onMouseDown,
 }: TableElementProps) {

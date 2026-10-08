@@ -54,8 +54,26 @@ export function clearOwnerSession(): void {
 }
 
 export async function ownerLogin(credentials: OwnerCredentials): Promise<OwnerSession | null> {
-  // In production, this would hit an auth endpoint.
-  // For now, we check the owner_users table in Supabase.
+  // Check platform_owner (PocketBase) first, then legacy owner_users.
+  const { data: platformOwner } = await supabase
+    .from('platform_owner')
+    .select('*')
+    .eq('email', credentials.email)
+    .maybeSingle()
+
+  if (platformOwner && platformOwner.passcode === credentials.passcode) {
+    const session: OwnerSession = {
+      id: platformOwner.id,
+      email: platformOwner.email,
+      name: platformOwner.name,
+      token: 'pb-token-' + Date.now(),
+      biometric_available: !!navigator.credentials,
+    }
+    setOwnerSession(session)
+    await logOwnerAction('owner_login', undefined, { method: 'passcode', success: true })
+    return session
+  }
+
   const { data, error } = await supabase
     .from('owner_users')
     .select('*')

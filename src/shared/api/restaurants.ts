@@ -1,8 +1,9 @@
-import { supabase, getRestaurantIdFromUrl } from '../../lib/supabase'
+import { supabase, getRestaurantIdFromUrl, resolveRestaurantId } from '../../lib/supabase'
 import type { Restaurant } from '../../types'
 
 export async function getRestaurant(): Promise<Restaurant | null> {
-  const id = getRestaurantIdFromUrl()
+  const raw = getRestaurantIdFromUrl()
+  const id = await resolveRestaurantId(raw)
   if (!id) return null
 
   const { data } = await supabase
@@ -33,3 +34,5 @@ export async function listRestaurants(): Promise<Restaurant[]> {
 
   return (data as Restaurant[]) || []
 }
+
+export { resolveRestaurantId }

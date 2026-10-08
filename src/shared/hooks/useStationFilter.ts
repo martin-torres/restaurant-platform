@@ -45,7 +45,11 @@ export function filterOrdersByStation(
     .map((order) => ({
       ...order,
       items: (order.items || []).filter((item) => {
-        const s = stationMap[item.menu_item_id || '']
+        // Prefer live menu map; fall back to station stamped on the order item
+        const s =
+          stationMap[item.menu_item_id || ''] ||
+          ((item as any).station as Station | undefined) ||
+          'kitchen'
         return s === targetStation || s === 'both'
       }),
     }))

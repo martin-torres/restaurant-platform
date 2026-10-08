@@ -30,3 +30,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# PocketBase local data + binary (download via releases)
+pocketbase/pb_data/
+pocketbase/pocketbase
+pocketbase/CHANGELOG.md
+pocketbase/LICENSE.md
